@@ -43,6 +43,7 @@ K_elem = np.pi*d**4/(128*mu*L)
 
 #----------Defining Global and local matrix---------#
 KG = np.zeros((NN,NN))
+RHS = np.zeros(nn)
 
 for i in range(E):
     node1 = connectivity[i,0]-1 
