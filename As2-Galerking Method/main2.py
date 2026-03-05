@@ -1,14 +1,14 @@
 import numpy as np
 
 # ===============================
-#Defining Geometry
+# Defining Geometry
 # ===============================
 nozzle_length = 10 # length of the nozzle is 10m
 mid = nozzle_length / 2
 # ===============================
 
 
-#Defining Inputs
+# Defining Inputs
 # ===============================
 
 ne= 5
@@ -42,10 +42,10 @@ def generate_connectivity(ne):
     return conn
 
 def main():
-    # generate connectivity 
+    # Generate connectivity 
     connect = generate_connectivity(ne)
     #-------------Assembly--------------#
-    #Initialize global stiffnes matrix
+    # Initialize global stiffnes matrix
     KG = np.zeros((nn,nn))
     for i in range(ne):
         node1  = connect[i,0]
@@ -71,7 +71,7 @@ def main():
             I_right = compute_I2(mid, x2)
             I = I_left + I_right
                 
-        #local stiffnes matrix 
+        # Local stiffnes matrix 
         k_local = rho*I/Le**2* np.array([[1 ,-1],[-1 ,1]])
 
         nodes = [node1, node2]
