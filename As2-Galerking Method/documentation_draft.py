@@ -200,11 +200,11 @@ if __name__ == "__main__":
     for i in range(len(phi_store)):
         plt.plot(x_store[i], phi_store[i],
                  linewidth=1.5,
-                 label=f"Elements = {E[i]}")
+                 )
 
     plt.xlabel("x")
     plt.ylabel("Velocity Potential φ")
-    plt.title("Variation of φ with Mesh Refinement")
+    plt.title("Variation of φ along x")
     plt.grid(True)
     plt.legend()
     
