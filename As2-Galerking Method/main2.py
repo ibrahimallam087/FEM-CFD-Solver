@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+plt.close('all')
 
 # ===============================
 # Geometry and Physical Constants
@@ -22,6 +23,26 @@ def compute_I2(x1, x2):
             - 1.5*x1 + x1**2/10 - x1**3/150)
 
 
+def area(x):
+
+    A = np.zeros_like(x)
+
+    left = x <= mid
+    right = x > mid
+
+    A[left] = 1 + 1.5*(1 - 0.2*x[left])**2
+    A[right] = 1 + 0.5*(0.2*x[right] - 1)**2
+
+    return A
+
+def exact_velocity(x):
+
+    u_L = 69.9854
+
+    A_L = 1.5
+
+    return (A_L * u_L) / area(x)
+
 # ===============================
 # Connectivity
 # ===============================
@@ -35,7 +56,7 @@ def generate_connectivity(ne):
 # ===============================
 # FEM Solver
 # ===============================
-def incomp_nozzle(ne):
+def incomp_nozzle_phi(ne):
 
     nn = ne + 1
     x = np.linspace(0, L, nn)
@@ -63,7 +84,7 @@ def incomp_nozzle(ne):
 
     # ---------- Dirichlet BC ----------
     bc_node = 0
-    bc_value = 0.0
+    bc_value = 10
 
     k_diag = KG[bc_node, bc_node]
 
@@ -85,6 +106,57 @@ def incomp_nozzle(ne):
 
     return phi
 
+def incomp_nozzle_u_FD(ne):
+    
+    nn = ne+1
+    x = np.linspace(0, L, nn)
+    u_FD = np.zeros(nn)
+    phi = incomp_nozzle_phi(ne)
+    for i in range(len(phi)):
+        if i ==0:
+            u_FD[i] = (phi[i+1]-phi[i])/(x[i+1]-x[i])
+        elif i==(len(phi)-1):
+            u_FD[i]=(phi[i]-phi[i-1])/(x[i]-x[i-1])
+        else:
+            u_FD[i] = (phi[i+1]-phi[i-1])/(x[i+1]-x[i-1])
+    return x,u_FD
+
+
+def incomp_nozzle_u_FEM(ne):
+
+    nn = ne + 1
+    x = np.linspace(0, L, nn)
+    phi = incomp_nozzle_phi(ne)
+
+    # Connectivity
+    connect = generate_connectivity(ne)
+
+    Kglob = np.zeros((nn, nn))
+    RHS = np.zeros(nn)
+
+    # Assembly
+    for node1, node2 in connect:
+
+        x1, x2 = x[node1], x[node2]
+        le = x2 - x1
+
+        # distribute phi gradient
+        RHS[node1] += (phi[node2] - phi[node1]) / 2
+        RHS[node2] += (phi[node2] - phi[node1]) / 2
+
+        # local mass matrix
+        KL = np.array([[le/3, le/6],
+                       [le/6, le/3]])
+
+        # assemble
+        Kglob[np.ix_([node1, node2],[node1, node2])] += KL
+
+    # Solve system
+    u_FEM = np.linalg.solve(Kglob, RHS)
+
+    return x, u_FEM
+
+
 
 # ===============================
 # Mesh Convergence Study
@@ -99,7 +171,7 @@ if __name__ == "__main__":
 
     for i, ne in enumerate(E):
 
-        phi = incomp_nozzle(ne)
+        phi = incomp_nozzle_phi(ne)
         x = np.linspace(0, L, ne+1)
 
         phi_store.append(phi)
@@ -134,7 +206,7 @@ if __name__ == "__main__":
     plt.title("Variation of φ with Mesh Refinement")
     plt.grid(True)
     plt.legend()
-    plt.show()
+    
 
     # ---------- Plot Error ----------
     plt.figure(figsize=(7,5))
@@ -147,4 +219,118 @@ if __name__ == "__main__":
     plt.ylabel("Percentage Error (%)")
     plt.title("Mesh Convergence History")
     plt.grid(True)
+    
+
+    # ---------- Plot velocity FEM ----------
+    x, velocity_FEM = incomp_nozzle_u_FEM(100)
+    x,velocity_f_D = incomp_nozzle_u_FD(100)
+    exact_velocity = exact_velocity(x);
+
+    error_FEM = np.abs((velocity_FEM - exact_velocity) / exact_velocity) * 100
+    error_FD  = np.abs((velocity_f_D - exact_velocity) / exact_velocity) * 100
+
+    # ===============================
+    # Mass Flow Rate Calculation
+    # ===============================
+
+    A_vals = area(x)
+
+    m_dot_FEM = rho * velocity_FEM * A_vals
+    m_dot_FD  = rho * velocity_f_D * A_vals
+    m_dot_exact = rho * exact_velocity * A_vals
+    # ===============================
+    # Pressure Calculation (Bernoulli)
+    # ===============================
+
+    P0 = 3e5   # stagnation pressure (Pa)
+
+    P_FEM = P0 - 0.5 * rho * velocity_FEM**2
+    P_FD  = P0 - 0.5 * rho * velocity_f_D**2
+
+    plt.figure(figsize=(7,5))
+
+    plt.plot(x, velocity_FEM,
+            linewidth=2,
+            color="blue",
+            label="FEM Galerkin")
+
+    plt.plot(x, velocity_f_D,
+            linewidth=2,
+            color="red",
+            linestyle="--",
+            label="Finite Difference")
+    plt.plot(x, exact_velocity,
+            linewidth=2,
+            color="red",
+            linestyle="--",
+            label="Exact")
+
+    plt.xlabel("x")
+    plt.ylabel("Velocity")
+    plt.title("Velocity Comparison")
+    plt.grid(True)
+    plt.legend()
+ 
+
+    plt.figure(figsize=(7,5))
+
+    plt.plot(x, error_FEM,
+         linewidth=2,
+         label="FEM Error")
+
+    plt.plot(x, error_FD,
+         linewidth=2,
+         linestyle="--",
+         label="FD Error")
+
+    plt.xlabel("x")
+    plt.ylabel("Relative Error (%)")
+    plt.title("Velocity Error Compared to Exact Solution")
+    plt.grid(True)
+    plt.legend()
+
+    plt.figure(figsize=(7,5))
+
+    plt.plot(x, m_dot_FEM,
+            linewidth=2,
+            label="FEM")
+
+    plt.plot(x, m_dot_FD,
+            linewidth=2,
+            linestyle="--",
+            label="Finite Difference")
+
+    plt.plot(x, m_dot_exact,
+            linewidth=2,
+            color="black",
+            label="Exact")
+
+    plt.xlabel("x")
+    plt.ylabel("Mass Flow Rate $\dot{m}$ (kg/s)")
+    plt.title("Mass Flow Rate Variation Along the Nozzle")
+    plt.grid(True)
+    plt.legend()
+
+    plt.figure(figsize=(7,5))
+
+    plt.plot(x, P_FEM/1e5,
+            linewidth=2,
+            label="FEM")
+
+    plt.plot(x, P_FD/1e5,
+            linestyle="--",
+            linewidth=2,
+            label="Finite Difference")
+
+    plt.xlabel("x")
+    plt.ylabel("Pressure (bar)")
+    plt.title("Pressure Distribution Along the Nozzle")
+    plt.grid(True)
+    plt.legend()
+
     plt.show()
+    plt.close('all')
+    
+
+   
+
