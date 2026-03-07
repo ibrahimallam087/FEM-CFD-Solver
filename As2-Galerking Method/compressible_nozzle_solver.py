@@ -278,6 +278,7 @@ plt.grid(True)
 
 phi_exit_values = [500,1000,2000,3000,3390.75]
 
+
 plt.figure(figsize=(7,5))
 
 for bc in phi_exit_values:
