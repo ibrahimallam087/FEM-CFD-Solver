@@ -57,7 +57,7 @@ def plot_mesh_comparison(mesh_data_list, titles):
         ax.set_aspect('equal')
 
     # =========================
-    # 🔥 Proper horizontal colorbar (fixed)
+    # Proper horizontal colorbar (fixed)
     # =========================
     cbar_ax = fig.add_axes([0.25, 0.08, 0.5, 0.05])  
     # [left, bottom, width, height]
